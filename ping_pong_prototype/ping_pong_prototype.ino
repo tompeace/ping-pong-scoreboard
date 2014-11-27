@@ -55,6 +55,8 @@ void setup () {
 
 
 void loop() {
+  
+  //get values from button input pins
   b1State = digitalRead(button1);
   b2State = digitalRead(button2);
 
@@ -131,11 +133,11 @@ void gameEnd () {
 
   //print out the score and declare 
   //a winner if pointLimit is reached 
-  
   lcd.setCursor(1, 0);
   lcd.print(winner);
   lcd.print(" wins!");
   Serial.println(b1State);
+  
   //if a button is pressed, go to next menu
   if (b1State == HIGH || b2State == HIGH) {
     delay(500);

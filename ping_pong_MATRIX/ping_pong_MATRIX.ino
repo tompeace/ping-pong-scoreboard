@@ -1,4 +1,5 @@
 #include "HT1632.h"
+#include "pitches.h"
 
 //declare variables for matrix display
 #define DATA 3
@@ -11,10 +12,13 @@
 //declare variables for game buttons and mode selector
 #define button1 8
 #define button2 9
+#define musicPin 12
 #define gameModeSelecta A0
 
 //declare matrix variable
 HT1632LEDMatrix matrix = HT1632LEDMatrix(DATA, WR, CS, CS2, CS3, CS4);
+
+
 
 //Button States
 int b1State = 0; //current value for button state
@@ -81,7 +85,7 @@ void loop() {
   matrix.setTextSize(1);
   matrix.setTextColor(1);
 
-  //run the game modes on a loop indefinetly
+  //run the game modes on a loop indefinetley
   if (gameState == 0) {
     gameSelect();
   } 
@@ -90,7 +94,6 @@ void loop() {
   } 
   else if (gameState == 2) {
     gameEnd();
-
   } 
   else if (gameState == 3) {
     playAgain();
@@ -102,7 +105,6 @@ void loop() {
 } 
 
 // GAMESTATE = 0
-//A menu for choosing how many points to play to
 void gameSelect() {
   //find out pointLimit from position of the potentiometer
   gameModeVal = analogRead(gameModeSelecta);
@@ -110,7 +112,8 @@ void gameSelect() {
 
   //detect game mode by dividing the reading of gameModeSelecta 
   //by the number of desired pointLimits and returning the result through
-  //switch function, assigning the different
+  //switch function, assigning variables for point limit and serve turn 
+  //which are apssed to the game function
   switch(gameModeVal/(1024/3)) {
   case 0:
     pointLimit = 5;
@@ -128,8 +131,6 @@ void gameSelect() {
     pointLimit = 11;
     serveLimit = 3;
   }
-
-
 
   //print current game mode
   matrix.fillRect(0, 0, 96, 16, 0);
@@ -150,16 +151,14 @@ void gameSelect() {
 //GAMESTATE = 1
 void game() {
   matrix.setTextSize(2); //make the score fill the display
+  x = 0; //reset x everytime function is entered
 
-
-
+  
   if (totalScore > 0 && totalScore % serveLimit == 0 && changeServe == true) {
     serve = !serve;
     changeServe = false;     
   }
-
-
-
+  
   if ((b1State == HIGH || b2State == HIGH) && (press1State == LOW || press2State == LOW)) {
     holdTime = millis();
     allow = true;
@@ -169,6 +168,7 @@ void game() {
     if ((millis() - holdTime) >= holdLimit) {
       player1Score = 0;
       player2Score = 0;
+      totalScore = 0;
       matrix.fillRect(0, 0, 96, 16, 0);
     }
   }
@@ -184,6 +184,7 @@ void game() {
       if(b1State == HIGH) { //everytime the button is pressed...
         totalScore++;
         player1Score ++; //incremement the score by one.
+        tone(musicPin, 220, 75);
         prev1Score = player1Score; //save previous score for player 1
         changeServe = true;        
       }
@@ -195,6 +196,7 @@ void game() {
       if(b2State == HIGH) {
         totalScore++;
         player2Score ++;
+        tone(musicPin, 196, 75);
         prev2Score = player2Score;
         changeServe = true;
       }
@@ -208,26 +210,28 @@ void game() {
   //sets up a mechanism in the event of a tie-breaker
   if(player1Score >= pointLimit) {
     if (player1Score > player2Score && player1Score - player2Score <= 1) {
-      serveLimit = 2;
+      serveLimit = 1;
       deuce();
     } 
-    //delcares a winner and pass on "winner" to the gameEnd() function
+    //delcares a winner and pass on "winner" to the gameEnd(); function
     else {
       delay(500);
       winner = "Player 1"; //passes on the value to gameEnd() to be printed to screen
-      gameState = 2; //go to gameEnd function      
+      gameState = 2; //go to gameEnd function 
+      allow = false; // long presses no longer allowed     
       matrix.fillRect(0, 0, 96, 16, 0); 
     }
   } 
   else if (player2Score >= pointLimit) {
     if (player2Score > player1Score && player2Score - player1Score <= 1) {
-      serveLimit = 2;
+      serveLimit = 1;
       deuce();
     } 
     else {
       delay(500);
       winner = "Player 2";
       gameState = 2;
+      allow = false;
       matrix.clearScreen();
     } 
   } 
@@ -236,6 +240,7 @@ void game() {
     //print out the part of the message 
     //which will always be displayed   
     matrix.fillRect(0, 0, 96, 16, 0); 
+
     switch (serve) {
     case 0:
       matrix.setCursor(0, 1);
@@ -264,18 +269,17 @@ void game() {
   }
 }
 
-//increase the point limit then go back to game
+//tie-breaker function
 void deuce() {
   pointLimit++;
   game();  
 }
 
-
 //GAMESTATE = 2
 //print out the score and declare 
 //a winner if pointLimit is reached
 void gameEnd () {
-
+ 
   matrix.fillRect(0, 0, 96, 16, 0);
 
   //Display final score
@@ -294,19 +298,30 @@ void gameEnd () {
   matrix.writeScreen();
   delay(500);
 
+
+  //Scroll winner
+
   matrix.fillRect(0, 0, 96, 16, 0);
-  matrix.setTextSize(1);   
+  matrix.setTextSize(1);
+
   matrix.setCursor(x+8, 4);
+  //matrix.fillRect(x, 4, 84, 9, 0);
+
   matrix.print(winner);
   matrix.print(" wins!");
+
   matrix.writeScreen();
   delay(500);
 
+  if(x >= 96) {
+    x = -82;
+  }
+  
   //if button is pressed take the game into the next game state 
   if (b1State == HIGH || b2State == HIGH) {
-    delay(500);
     gameState = 3;
     matrix.fillRect(0, 0, 96, 16, 0);
+    delay(500);
   }   
 } 
 
@@ -314,7 +329,6 @@ void gameEnd () {
 //clear the player scores and total score for the next game
 void playAgain() {
 
-  x = 0; //reset x so that the text doesn't start scrolling from it's last position
   player1Score = 0;
   player2Score = 0;
   totalScore = 0;
@@ -359,6 +373,3 @@ void serveSelect() {
     matrix.fillRect(0, 0, 96, 16, 0);
   }    
 }
-
-
-
